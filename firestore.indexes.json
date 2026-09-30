@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "antrean",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tanggal", "order": "ASCENDING" },
+        { "fieldPath": "waktuDaftar", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
