@@ -435,6 +435,9 @@ export async function batalkanAntrean(id, nomor) {
 export function initDisplay() {
     const tanggalHariIni = getTanggalHariIni()
 
+    // Coba aktifkan suara otomatis saat halaman dibuka
+    cobaAktifkanOtomatis()
+
     // Update jam setiap detik
     setInterval(() => {
         const jamEl = document.getElementById("jamDisplay")
@@ -522,9 +525,11 @@ export function initDisplay() {
     })
 }
 
-// ===================== FUNGSI MAIN SUARA PANGGILAN =====================
-// Suara dipisah per kata dengan jeda agar jelas (nomor: "A - 0 0 1")
-let voicesReady = false
+// ===================== FUNGSI MAIN SUARA PANGGILAN (AUTO) =====================
+// Strategi: coba aktifkan otomatis saat load, coba bunyi tiap panggilan,
+// dan hanya tampilkan tombol kecil jika browser benar-benar memblokir.
+let suaraTerkunci = false
+let percobaanAktivasi = 0
 
 function getIndonesianVoice() {
     const voices = window.speechSynthesis.getVoices()
@@ -533,10 +538,52 @@ function getIndonesianVoice() {
         || null
 }
 
+// Tampilkan/sembunyikan tombol kecil "aktifkan suara" di pojok layar
+function updateTombolSuara(terkunci) {
+    const btn = document.getElementById("btnSuaraKecil")
+    if (!btn) return
+    btn.style.display = terkunci ? "flex" : "none"
+}
+
+// Percobaan mengaktifkan suara secara otomatis (tanpa klik user)
+function cobaAktifkanOtomatis() {
+    percobaanAktivasi++
+    if (!('speechSynthesis' in window)) return
+
+    // Muat daftar voice (beberapa browser butuh trigger)
+    window.speechSynthesis.getVoices()
+
+    // Ucapan sunyi: kalau browser mengizinkan, suara langsung "terbuka"
+    const ucapan = new SpeechSynthesisUtterance(' ')
+    ucapan.volume = 0
+    ucapan.lang = 'id-ID'
+    let berhasil = false
+    ucapan.onstart = () => {
+        berhasil = true
+        suaraTerkunci = false
+        updateTombolSuara(false)
+    }
+    window.speechSynthesis.speak(ucapan)
+
+    // Cek hasil setelah delay: jika tidak ada event start, anggap terkunci
+    setTimeout(() => {
+        window.speechSynthesis.cancel()
+        if (!berhasil) {
+            suaraTerkunci = true
+            updateTombolSuara(true)
+            // Coba lagi maksimal 3x (Chrome kadang izinkan setelah engagement)
+            if (percobaanAktivasi < 3) {
+                setTimeout(cobaAktifkanOtomatis, 5000)
+            }
+        }
+    }, 800)
+}
+
+// Dipanggil dari tombol kecil (hanya muncul jika browser memblokir)
 export function aktifkanSuara() {
-    // Panggil sekali dari klik user agar browser mengizinkan audio & TTS
     if ('speechSynthesis' in window) {
         window.speechSynthesis.getVoices()
+        window.speechSynthesis.resume()
         const ucapan = new SpeechSynthesisUtterance('Suara antrean aktif')
         ucapan.lang = 'id-ID'
         ucapan.volume = 0.8
@@ -549,32 +596,27 @@ export function aktifkanSuara() {
             audio.currentTime = 0
         }).catch(() => {})
     }
-    voicesReady = true
-    const overlay = document.getElementById("aktivasiSuara")
-    if (overlay) overlay.style.display = "none"
+    suaraTerkunci = false
+    updateTombolSuara(false)
 }
 
 function mainkanSuaraPanggilan(nomor, nama) {
     try {
-        if (!voicesReady) {
-            // Jika belum ada interaksi user, tampilkan tombol aktivasi
-            const overlay = document.getElementById("aktivasiSuara")
-            if (overlay) overlay.style.display = "flex"
-        }
-
-        // Mainkan beep sound
+        // Selalu coba bunyi otomatis dulu — tanpa klik
         const audio = document.getElementById("audioPanggil")
         if (audio) {
             audio.currentTime = 0
-            audio.play().catch(e => console.log("Audio play blocked:", e))
+            audio.play().catch(() => {
+                // Beep diblokir → tampilkan tombol kecil
+                suaraTerkunci = true
+                updateTombolSuara(true)
+            })
         }
 
-        // Gunakan Web Speech API untuk text-to-speech
         if ('speechSynthesis' in window) {
-            // Batalkan ucapan sebelumnya
             window.speechSynthesis.cancel()
 
-            // Format nomor: "A-001" -> "A - 0 0 1" (eja per huruf/angka)
+            // Eja per digit: "A-001" -> "A - 0 0 1"
             const nomorEjaan = nomor.split('').join(' ')
 
             const ucapan = new SpeechSynthesisUtterance(
@@ -588,9 +630,22 @@ function mainkanSuaraPanggilan(nomor, nama) {
             const voice = getIndonesianVoice()
             if (voice) ucapan.voice = voice
 
-            // Delay sedikit agar beep selesai dulu
+            let berhasil = false
+            ucapan.onstart = () => {
+                berhasil = true
+                suaraTerkunci = false
+                updateTombolSuara(false)
+            }
+
             setTimeout(() => {
                 window.speechSynthesis.speak(ucapan)
+                // Kalau TTS juga diblokir, tampilkan tombol kecil
+                setTimeout(() => {
+                    if (!berhasil) {
+                        suaraTerkunci = true
+                        updateTombolSuara(true)
+                    }
+                }, 500)
             }, 700)
         }
     } catch (error) {

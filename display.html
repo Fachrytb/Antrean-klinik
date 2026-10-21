@@ -8,44 +8,40 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Overlay aktivasi suara - wajib klik agar browser mengizinkan audio */
-        #aktivasiSuara {
+        /* Tombol kecil "aktifkan suara" - hanya muncul jika browser memblokir audio */
+        #btnSuaraKecil {
             position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            bottom: 20px;
+            right: 20px;
             z-index: 9999;
-        }
-        #aktivasiSuara .btn-aktivasi {
-            background: #0d6efd;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: rgba(13, 110, 253, 0.95);
             color: #fff;
             border: none;
-            padding: 18px 42px;
-            font-size: 1.4rem;
+            padding: 12px 20px;
+            font-size: 1rem;
             font-weight: 600;
-            border-radius: 12px;
+            border-radius: 50px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+            animation: pulseSuara 1.5s infinite;
         }
-        #aktivasiSuara .btn-aktivasi:hover {
-            background: #0b5ed7;
+        #btnSuaraKecil:hover { background: #0b5ed7; }
+        @keyframes pulseSuara {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
         }
     </style>
 <base target="_blank">
 </head>
 <body class="display-body">
 
-    <!-- Overlay: klik untuk mengaktifkan suara (kebijakan autoplay browser) -->
-    <div id="aktivasiSuara" style="display:none;">
-        <button class="btn-aktivasi" onclick="aktifkanSuara()">
-            <i class="bi bi-volume-up-fill"></i> Klik untuk Mengaktifkan Suara
-        </button>
-    </div>
+    <!-- Tombol kecil - hanya muncul otomatis jika suara diblokir browser -->
+    <button id="btnSuaraKecil" onclick="aktifkanSuara()">
+        <i class="bi bi-volume-up-fill"></i> Aktifkan Suara
+    </button>
 
     <div class="display-container">
         <!-- Header Display -->
@@ -89,9 +85,7 @@
     <script type="module" src="main.js"></script>
     <script type="module">
         import { initDisplay, aktifkanSuara } from './main.js'
-        // Expose ke window agar bisa dipanggil dari onclick HTML
         window.aktifkanSuara = aktifkanSuara
-        // Inisialisasi display saat halaman dimuat
         initDisplay()
     </script>
 </body>
