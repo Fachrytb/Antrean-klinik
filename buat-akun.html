@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buat Akun Admin - QueueCare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<base target="_blank">
+</head>
+<body class="bg-light d-flex align-items-center" style="min-height:100vh;">
+    <div class="container" style="max-width:480px;">
+        <div class="card shadow border-0">
+            <div class="card-header bg-primary text-white text-center">
+                <i class="bi bi-person-plus-fill"></i> Buat Akun Admin Baru
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info small py-2">
+                    <i class="bi bi-info-circle"></i>
+                    Akun baru: <b>Username: klinik2026</b> &middot; <b>Password: Antrean#2026</b>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nama Admin</label>
+                    <input type="text" id="namaAdmin" class="form-control" value="Admin Klinik">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="usernameBaru" class="form-control" value="klinik2026">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="text" id="passwordBaru" class="form-control" value="Antrean#2026">
+                </div>
+                <button class="btn btn-primary w-100" id="btnBuatAkun">
+                    <i class="bi bi-save"></i> Simpan ke Firestore
+                </button>
+                <div id="pesanAkun" class="mt-3"></div>
+            </div>
+            <div class="card-footer text-center small text-muted">
+                Hapus file ini setelah akun berhasil dibuat.
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js"
+        import {
+            getFirestore, collection, addDoc, getDocs, query, where
+        } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js"
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFr3Y121FfaDUWJ9FXibB3LNiN6gYAl1I",
+            authDomain: "incer-3e941.firebaseapp.com",
+            projectId: "incer-3e941",
+            storageBucket: "incer-3e941.firebasestorage.app",
+            messagingSenderId: "575500379499",
+            appId: "1:575500379499:web:7cc7e87d7dbd02b722582e",
+            measurementId: "G-KJ759EE2CR"
+        };
+
+        const app = initializeApp(firebaseConfig)
+        const db = getFirestore(app)
+        const usersCollection = collection(db, "users")
+
+        document.getElementById("btnBuatAkun").addEventListener("click", async () => {
+            const nama = document.getElementById("namaAdmin").value.trim()
+            const username = document.getElementById("usernameBaru").value.trim()
+            const password = document.getElementById("passwordBaru").value.trim()
+            const pesanEl = document.getElementById("pesanAkun")
+
+            if (!nama || !username || !password) {
+                pesanEl.innerHTML = '<div class="alert alert-danger py-2">Semua field wajib diisi!</div>'
+                return
+            }
+
+            try {
+                // Cek apakah username sudah ada
+                const qCek = query(usersCollection, where("username", "==", username))
+                const snapCek = await getDocs(qCek)
+
+                if (!snapCek.empty) {
+                    pesanEl.innerHTML = '<div class="alert alert-warning py-2">Username sudah ada di database.</div>'
+                    return
+                }
+
+                // Simpan akun baru
+                await addDoc(usersCollection, {
+                    nama: nama,
+                    username: username,
+                    password: password,
+                    role: "admin"
+                })
+
+                pesanEl.innerHTML = '<div class="alert alert-success py-2">Akun berhasil dibuat! Silakan login di <a href="index.html">halaman login</a>.</div>'
+            } catch (error) {
+                pesanEl.innerHTML = `<div class="alert alert-danger py-2">Gagal: ${error.message}</div>`
+            }
+        })
+    </script>
+</body>
+</html>

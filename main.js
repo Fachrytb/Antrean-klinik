@@ -219,59 +219,32 @@ export async function simpanPasien() {
 }
 
 // ===================== FUNGSI MUAT DATA ANTREAN REALTIME =====================
-
-// Kueri hanya pakai `where` saja — tidak perlu composite index
-const q = query(
-    antreanCollection,
-    where("tanggal", "==", tanggalHariIni)
-)
-
-unsubscribeAntrean = onSnapshot(q, (snapshot) => {
-    dataAntreanGlobal = []
-    snapshot.forEach((doc) => {
-        dataAntreanGlobal.push({ id: doc.id, ...doc.data() })
-    })
-    
-    // ✅ Urutkan di JavaScript (bukan di Firestore)
-    dataAntreanGlobal.sort((a, b) => {
-        const wa = a.waktuDaftar?.toMillis?.() || 0
-        const wb = b.waktuDaftar?.toMillis?.() || 0
-        return wa - wb // ascending: paling awal di atas
-    })
-    
-    renderTabelAntrean()
-    renderStatistik()
-}, (error) => {
-    console.error("Error memuat antrean:", error)
-})
-
-// ===================== FUNGSI function muatDataAntreanRealtime()MUAT DATA ANTREAN REALTIME =====================
 function muatDataAntreanRealtime() {
     const tanggalHariIni = getTanggalHariIni()
-    
+
     // Hentikan listener lama jika ada (mencegah duplikat)
     if (unsubscribeAntrean) unsubscribeAntrean()
-    
+
     // Kueri hanya pakai `where` agar tidak perlu composite index
     const q = query(
         antreanCollection,
         where("tanggal", "==", tanggalHariIni)
     )
-    
+
     // onSnapshot = listener realtime, otomatis update saat data berubah
     unsubscribeAntrean = onSnapshot(q, (snapshot) => {
         dataAntreanGlobal = []
         snapshot.forEach((doc) => {
             dataAntreanGlobal.push({ id: doc.id, ...doc.data() })
         })
-        
+
         // Urutkan di JavaScript (bukan di Firestore) — ascending waktuDaftar
         dataAntreanGlobal.sort((a, b) => {
             const wa = a.waktuDaftar?.toMillis?.() || 0
             const wb = b.waktuDaftar?.toMillis?.() || 0
             return wa - wb
         })
-        
+
         // Render tabel dan statistik
         renderTabelAntrean()
         renderStatistik()
@@ -279,6 +252,8 @@ function muatDataAntreanRealtime() {
         console.error("Error memuat antrean:", error)
     })
 }
+
+// ===================== FUNGSI RENDER TABEL ANTREAN =====================
 function renderTabelAntrean() {
     const tabel = document.getElementById("tabelAntrean")
     const pesanKosong = document.getElementById("pesanKosong")
@@ -459,7 +434,7 @@ export async function batalkanAntrean(id, nomor) {
 // ===================== FUNGSI INIT DISPLAY (HALAMAN DISPLAY) =====================
 export function initDisplay() {
     const tanggalHariIni = getTanggalHariIni()
-    
+
     // Update jam setiap detik
     setInterval(() => {
         const jamEl = document.getElementById("jamDisplay")
@@ -467,46 +442,46 @@ export function initDisplay() {
             jamEl.textContent = new Date().toLocaleTimeString('id-ID')
         }
     }, 1000)
-    
+
     // Kueri hanya pakai `where` agar tidak perlu composite index
     const q = query(
         antreanCollection,
         where("tanggal", "==", tanggalHariIni)
     )
-    
+
     // Variabel untuk melacak nomor terakhir yang dipanggil (untuk trigger suara)
     let lastCalledId = null
-    
+
     // Listener realtime untuk display
     onSnapshot(q, (snapshot) => {
         const semuaAntrean = []
         snapshot.forEach((doc) => {
             semuaAntrean.push({ id: doc.id, ...doc.data() })
         })
-        
+
         // Urutkan di JavaScript berdasarkan waktuDaftar
         semuaAntrean.sort((a, b) => {
             const wa = a.waktuDaftar?.toMillis?.() || 0
             const wb = b.waktuDaftar?.toMillis?.() || 0
             return wa - wb
         })
-        
+
         // Cari antrean yang sedang dipanggil (status = "Dipanggil")
         const dipanggil = semuaAntrean.find(a => a.status === "Dipanggil")
-        
+
         // Cari antrean menunggu untuk ditampilkan sebagai "berikutnya"
         const menunggu = semuaAntrean.filter(a => a.status === "Menunggu")
-        
+
         // ============ UPDATE TAMPILAN NOMOR DIPANGGIL ============
         const elNomor = document.getElementById("nomorDipanggil")
         const elNama = document.getElementById("namaDipanggil")
         const elPesan = document.querySelector(".pesan-poli")
-        
+
         if (dipanggil) {
             elNomor.textContent = dipanggil.nomor
             elNama.textContent = dipanggil.nama
             elPesan.style.display = "block"
-            
+
             // Trigger suara hanya jika ini antrean BARU yang dipanggil
             if (lastCalledId !== dipanggil.id) {
                 lastCalledId = dipanggil.id
@@ -523,11 +498,11 @@ export function initDisplay() {
             elPesan.textContent = "Silakan menunggu pendaftaran pasien"
             elPesan.style.display = "block"
         }
-        
+
         // ============ UPDATE DAFTAR ANTREAN BERIKUTNYA ============
         const listBerikutnya = document.getElementById("listBerikutnya")
         listBerikutnya.innerHTML = ""
-        
+
         if (menunggu.length === 0) {
             listBerikutnya.innerHTML = '<div class="next-empty">Tidak ada antrean berikutnya</div>'
         } else {
@@ -548,8 +523,45 @@ export function initDisplay() {
 }
 
 // ===================== FUNGSI MAIN SUARA PANGGILAN =====================
+// Suara dipisah per kata dengan jeda agar jelas (nomor: "A - 0 0 1")
+let voicesReady = false
+
+function getIndonesianVoice() {
+    const voices = window.speechSynthesis.getVoices()
+    return voices.find(v => v.lang && v.lang.toLowerCase().startsWith('id'))
+        || voices.find(v => v.lang && v.lang.toLowerCase().includes('id'))
+        || null
+}
+
+export function aktifkanSuara() {
+    // Panggil sekali dari klik user agar browser mengizinkan audio & TTS
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices()
+        const ucapan = new SpeechSynthesisUtterance('Suara antrean aktif')
+        ucapan.lang = 'id-ID'
+        ucapan.volume = 0.8
+        window.speechSynthesis.speak(ucapan)
+    }
+    const audio = document.getElementById("audioPanggil")
+    if (audio) {
+        audio.play().then(() => {
+            audio.pause()
+            audio.currentTime = 0
+        }).catch(() => {})
+    }
+    voicesReady = true
+    const overlay = document.getElementById("aktivasiSuara")
+    if (overlay) overlay.style.display = "none"
+}
+
 function mainkanSuaraPanggilan(nomor, nama) {
     try {
+        if (!voicesReady) {
+            // Jika belum ada interaksi user, tampilkan tombol aktivasi
+            const overlay = document.getElementById("aktivasiSuara")
+            if (overlay) overlay.style.display = "flex"
+        }
+
         // Mainkan beep sound
         const audio = document.getElementById("audioPanggil")
         if (audio) {
@@ -562,19 +574,24 @@ function mainkanSuaraPanggilan(nomor, nama) {
             // Batalkan ucapan sebelumnya
             window.speechSynthesis.cancel()
 
-            // Buat ucapan baru
+            // Format nomor: "A-001" -> "A - 0 0 1" (eja per huruf/angka)
+            const nomorEjaan = nomor.split('').join(' ')
+
             const ucapan = new SpeechSynthesisUtterance(
-                `Nomor antrean, ${nomor.split('').join(' ')}, atas nama, ${nama}, silakan menuju poli umum`
+                `Perhatian. Perhatian. Nomor antrean, ${nomorEjaan}, atas nama, ${nama}, silakan menuju poli umum`
             )
             ucapan.lang = 'id-ID'
-            ucapan.rate = 0.9
+            ucapan.rate = 0.85
             ucapan.pitch = 1
             ucapan.volume = 1
+
+            const voice = getIndonesianVoice()
+            if (voice) ucapan.voice = voice
 
             // Delay sedikit agar beep selesai dulu
             setTimeout(() => {
                 window.speechSynthesis.speak(ucapan)
-            }, 500)
+            }, 700)
         }
     } catch (error) {
         console.error("Error memainkan suara:", error)
